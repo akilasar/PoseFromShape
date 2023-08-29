@@ -46,7 +46,7 @@ def resize_padding_v2(im, desired_size_in, desired_size_out):
 # create a lamp with an appropriate energy
 def makeLamp(lamp_name, rad):
     # Create new lamp data block
-    lamp_data = bpy.data.lamps.new(name=lamp_name, type='POINT')
+    lamp_data = bpy.data.lights.new(name=lamp_name, type='POINT')
     lamp_data.energy = rad
     # modify the distance when the object is not normalized
     # lamp_data.distance = rad * 2.5
@@ -55,8 +55,7 @@ def makeLamp(lamp_name, rad):
     lamp_object = bpy.data.objects.new(name=lamp_name, object_data=lamp_data)
 
     # Link lamp object to the scene so it'll appear in this scene
-    scene = bpy.context.scene
-    scene.objects.link(lamp_object)
+    bpy.context.collection.objects.link(lamp_object)
     return lamp_object
 
 
@@ -67,9 +66,8 @@ def parent_obj_to_camera(b_camera):
     b_empty.location = origin
     b_camera.parent = b_empty
 
-    scn = bpy.context.scene
-    scn.objects.link(b_empty)
-    scn.objects.active = b_empty
+    bpy.context.collection.objects.link(b_empty)
+    bpy.context.view_layer.objects.active = b_empty
     return b_empty
 
 
@@ -77,12 +75,27 @@ def clean_obj_lamp_and_mesh(context):
     scene = context.scene
     objs = bpy.data.objects
     meshes = bpy.data.meshes
-    for obj in objs:
-        if obj.type == "MESH" or obj.type == 'LAMP':
-            scene.objects.unlink(obj)
-            objs.remove(obj)
+
+    # for collection in bpy.data.collections:
+    #     print(collection.name)
+    #     for obj in collection.all_objects:
+    #         print("obj: ", obj.name)
+
+    # # remove mesh Cube
+    # if "Cube" in meshes:
+    #     mesh = meshes["Cube"]
+    #     print("removing mesh", mesh)
+    #     bpy.data.meshes.remove(mesh)
+
     for mesh in meshes:
+        print(mesh)
         meshes.remove(mesh)
+
+    for obj in objs:
+        print(obj, obj.type)
+        if obj.type == "MESH" or obj.type == 'LAMP':
+            bpy.context.scene.collection.objects.unlink(obj)
+            objs.remove(obj)
 
 
 def render_obj_grid(obj, output_dir, shape=[256, 256], step=30, light_main=5, light_add=1, r=2, normalize=False, forward=None, up=None):
@@ -121,7 +134,7 @@ def render_obj_grid(obj, output_dir, shape=[256, 256], step=30, light_main=5, li
     scene.render.resolution_x = shape[1]
     scene.render.resolution_y = shape[0]
     scene.render.resolution_percentage = 100
-    scene.render.alpha_mode = 'TRANSPARENT'
+    scene.render.film_transparent = 1
 
     # Camera setting
     cam = scene.objects['Camera']
@@ -152,17 +165,18 @@ def render_obj_grid(obj, output_dir, shape=[256, 256], step=30, light_main=5, li
         for object in bpy.context.scene.objects:
             if object.name in ['Camera', 'Lamp'] or object.type in ['EMPTY', 'LAMP']:
                 continue
-            bpy.context.scene.objects.active = object
+            bpy.context.view_layer.objects.active = object
             max_dim = max(object.dimensions)
             object.dimensions = object.dimensions / max_dim if max_dim != 0 else object.dimensions
     
     # Separate viewpoints on the surface of a semi-sphere of radian r
-    n_azi = int(360 / 5)  # one render image every 5 degrees
+    n_azi = int(60 / 5)  # one render image every 5 degrees -> change bcak to 360 ####
     n_view = n_azi * int(90 / step)  # numbe of tours depending on the elevation step
 
     for i in range(0, n_view):
-        azi = (i * 5) % 360
+        azi = 170 + (i * 5) % 90
         ele = (i // n_azi) * step
+
         scene.render.filepath = os.path.join(fp, 'rendering_%03d_%03d' % (ele, azi))
     
         loc_y = r * math.cos(radians(ele)) * math.cos(radians(azi))
@@ -196,7 +210,7 @@ def render_obj_with_view(obj, output_dir, csv_file, texture_img, views=20, shape
     scene.render.resolution_x = shape[1]
     scene.render.resolution_y = shape[0]
     scene.render.resolution_percentage = 100
-    scene.render.alpha_mode = 'TRANSPARENT'
+    scene.render.film_transparent = 1
 
     # Camera setting
     cam = scene.objects['Camera']
@@ -298,7 +312,7 @@ def render_obj(obj, output_dir, azi, ele, rol, name, shape=[512, 512], forward=N
     scene.render.resolution_x = shape[1]
     scene.render.resolution_y = shape[0]
     scene.render.resolution_percentage = 100
-    scene.render.alpha_mode = 'TRANSPARENT'
+    scene.render.film_transparent = 1
 
     # Camera setting
     cam = scene.objects['Camera']
@@ -321,7 +335,7 @@ def render_obj(obj, output_dir, azi, ele, rol, name, shape=[512, 512], forward=N
     for object in bpy.context.scene.objects:
         if object.name in ['Camera', 'Lamp'] or object.type == 'EMPTY':
             continue
-        bpy.context.scene.objects.active = object
+        bpy.context.view_layer.objects.active = object
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
         object.location = (0, 0, 0)
         max_dim = max(object.dimensions)
@@ -335,6 +349,7 @@ def render_obj(obj, output_dir, azi, ele, rol, name, shape=[512, 512], forward=N
     azi = radians(azi)
     ele = radians(ele)
     rol = radians(rol)
+    print(azi, ele, rol)
     r = 2.5
     loc_y = r * math.cos(ele) * math.cos(azi)
     loc_x = r * math.cos(ele) * math.sin(azi)
@@ -345,18 +360,15 @@ def render_obj(obj, output_dir, azi, ele, rol, name, shape=[512, 512], forward=N
 
     # Change the in-plane rotation
     cam_ob = bpy.context.scene.camera
-    bpy.context.scene.objects.active = cam_ob  # select the camera object
+    bpy.context.view_layer.objects.active = cam_ob  # select the camera object
     distance = np.sqrt(loc_x ** 2 + loc_y ** 2 + loc_z ** 2)
-    bpy.ops.transform.rotate(value=rol, axis=(loc_x / distance, loc_y / distance, loc_z / distance),
-                             constraint_axis=(False, False, False), constraint_orientation='GLOBAL', mirror=False,
-                             proportional='DISABLED', proportional_edit_falloff='SMOOTH',
-                             proportional_size=1)
+    bpy.ops.transform.rotate(value=azi, orient_axis='Z')
 
     bpy.ops.render.render(write_still=True)
 
 
 if __name__ == '__main__':
-    obj = '/home/xiao/Projects/PoseFromShape/demo/armadillo.obj'
-    render_dir = '/home/xiao/Projects/PoseFromShape/demo/armadillo_multiviews'
+    obj = '/Users/saravanan.akila/Summer/PoseFromShape/demo/heron.obj'
+    render_dir = '/Users/saravanan.akila/Summer/PoseFromShape/demo/heron_multiviews_subset'
     render_obj_grid(obj, render_dir, [512, 512], 30, 5, 1, 2, True, None, None)
     

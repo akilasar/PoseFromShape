@@ -72,7 +72,7 @@ def resize_padding(im, desired_size):
     ratio = float(desired_size)/max(old_size)
     new_size = tuple([int(x*ratio) for x in old_size])
 
-    im = im.resize(new_size, Image.ANTIALIAS)
+    im = im.resize(new_size, Image.Resampling.LANCZOS)
 
     # create a new image and paste the resized on it
     new_im = Image.new("RGB", (desired_size, desired_size))
@@ -115,6 +115,40 @@ def read_multiviwes(render_transform, render_example_path, view_num, tour, mutat
         renders.append(render.unsqueeze(0))
 
     return torch.cat(renders, 0)
+
+
+#     render_names = [name for name in os.listdir(render_example_path)]
+#     render_names.sort()
+#     step = 5 #int(72 / (view_num / tour))
+#     renders_low = np.linspace(170, 220, 12, dtype='int') #np.linspace(0, 71, 72, dtype='int')
+#     # print(renders_low)
+#     # renders_mid = renders_low + 72
+#     # renders_up = renders_mid + 72
+#     # print(step, tour, view_num)
+#     # if tour == 1:
+#     #     render_ids = np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step]
+#     # elif tour == 2:
+#     #     render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
+#     #                                  np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step]))
+#     #     print(render_ids)
+#     # else:
+#     #     render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
+#     #                                  np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step],
+#     #                                  np.concatenate((renders_up[mutation:], renders_up[:mutation]))[::step]))
+
+#     # load multi views and concatenate them into a tensor
+#     renders = []
+#     for t in range(0, tour):
+#         for i in range(0, len(renders_low)):
+#             print(i + t*len(renders_low))
+#             print(render_names)
+#             print()
+#             render = Image.open(os.path.join(render_example_path, render_names[i + t*len(renders_low)]))
+#             render = render.convert('RGB')
+#             render = render_transform(render)
+#             renders.append(render.unsqueeze(0))
+
+#     return torch.cat(renders, 0)
 
 
 def read_pointcloud(model_path, point_num, rotation=0):

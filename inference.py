@@ -65,6 +65,7 @@ render_transform = transforms.ToTensor()
 renders = read_multiviwes(render_transform, opt.render_path, opt.view_num, opt.tour, False)
 
 K, C, H, W = renders.size()
+print(K, C, H, W)
 renders = renders.view(1, K, C, H, W)
 # ========================================================== #
 
@@ -109,6 +110,9 @@ with torch.no_grad():
         # render the object under predicted pose
         output_path = opt.image_path
         img_name = img_name.split(".")[0]
+        print(img_name)
         render_obj(opt.obj_path, output_path, azi, ele, rol, img_name)
 
 # ========================================================== #
+
+### Command Line Input: 
